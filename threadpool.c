@@ -17,6 +17,7 @@
 // completed by a thread in the pool
 typedef struct 
 {
+    // function should be replaced once client.c is worked on. 
     void (*function)(void *p);
     void *data;
 }
@@ -25,8 +26,8 @@ task;
 // the work queue
 task worktodo;
 
-// the worker bee
-pthread_t bee;
+// the worker bees
+pthread_t bee[NUMBER_OF_THREADS];
 
 // insert a task into the queue
 // returns 0 if successful or 1 otherwise, 
@@ -71,12 +72,22 @@ int pool_submit(void (*somefunction)(void *p), void *p)
 
 // initialize the thread pool
 void pool_init(void)
-{
-    pthread_create(&bee,NULL,worker,NULL);
+{   
+    int i; 
+    for (i = 0; i < NUMBER_OF_THREADS; i++){
+        if (pthread_create(&bee[i],NULL,worker,NULL) != 0){
+            perror("Failed to create thread");
+        }
+    }
 }
 
 // shutdown the thread pool
 void pool_shutdown(void)
 {
-    pthread_join(bee,NULL);
+     int i; 
+    for (i = 0; i < NUMBER_OF_THREADS; i++){
+        if (pthread_join(bee[i],NULL) != 0){
+            perror("Failed to shut down thread");
+        }
+    }
 }
