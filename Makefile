@@ -5,7 +5,7 @@ CC=gcc
 CFLAGS=-Wall
 PTHREADS=-lpthread
 
-all: client.o threadpool.o
+all: client.o threadpool.o Queue.o
 	$(CC) $(CFLAGS) -o example client.o threadpool.o $(PTHREADS)
 
 client.o: client.c
@@ -13,6 +13,9 @@ client.o: client.c
 
 threadpool.o: threadpool.c threadpool.h
 	$(CC) $(CFLAGS) -c threadpool.c $(PTHREADS)
+
+Queue.o: Queue.clean
+	$(CC) $(CFLAGS) -c Queue.c $(PTHREADS)
 
 clean:
 	rm -rf *.o

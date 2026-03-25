@@ -7,39 +7,65 @@
 #include <stdio.h>
 #include <semaphore.h>
 #include "threadpool.h"
+#include "Queue.h"
 
 #define QUEUE_SIZE 100
 #define NUMBER_OF_THREADS 5
 
 #define TRUE 1
 
-// this represents work that has to be 
-// completed by a thread in the pool
-typedef struct 
-{
-    // function should be replaced once client.c is worked on. 
-    void (*function)(void *p);
-    void *data;
-}
-task;
+// # of spots taken in the queue
+int  queueSpace = 0;
 
-// the work queue
-task worktodo;
+//The work queue
+queue_t worktodo;
+queue_t *ptrworktodo = &worktodo;
+
 
 // the worker bees
 pthread_t bee[NUMBER_OF_THREADS];
 
+
 // insert a task into the queue
-// returns 0 if successful or 1 otherwise, 
 int enqueue(task t) 
 {
-    return 0;
-}
+    if (queueSpace < QUEUE_SIZE)
+    {
+        // Add the task t to the heap memory 
+        task *ptrtot = malloc(sizeof(t));
+        *ptrtot = t;
 
+        // Create the Node to pass 
+        node_t *ptrnewNode = malloc(sizeof(node_t));
+        ptrnewNode -> next = NULL;
+        ptrnewNode -> data = ptrtot;
+
+        // Add the node into the queue
+        add(ptrworktodo,ptrnewNode);
+        queueSpace++;
+        return 0;
+    }
+
+    return 1;
+}
 // remove a task from the queue
 task dequeue() 
 {
-    return worktodo;
+    if (queueSpace != 0){
+        // Pointer to the head data before it is pop'd 
+        task *ptrHeadData = ptrworktodo -> head -> data;
+        task headData = *ptrHeadData;
+
+        pop(ptrworktodo);
+
+        // Freeing the OLD head data
+        free(ptrHeadData);
+
+        queueSpace--;
+        return headData;
+    }
+    
+    printf("Queue Space is empty!");
 }
 
 // the worker thread in the thread pool
