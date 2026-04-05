@@ -44,7 +44,7 @@ void compute_partial_product(void *param)
     struct data *temp;
     temp = (struct data*)param;
     
-    printf("Computer Cell (%d, %d)\n", temp->row, temp->col);
+    //printf("[client] Computer Cell (%d, %d)\n", temp->row, temp->col);
 
     // perform partial product
     double sum = 0.0;

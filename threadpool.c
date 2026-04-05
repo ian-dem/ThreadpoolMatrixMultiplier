@@ -9,7 +9,7 @@
 #include "threadpool.h"
 #include "Queue.h"
 
-#define QUEUE_SIZE 100
+#define QUEUE_SIZE 100000
 #define NUMBER_OF_THREADS 5
 
 #define TRUE 1
@@ -38,11 +38,13 @@ int enqueue(task t)
 {
     //Lock queue
     pthread_mutex_lock(&mutex_queue);
+    //debug message
+    //printf("[enqueue] queueSpace=%d, shutdown_flag=%d\n", queueSpace, shutdown_flag);
 
     if (queueSpace < QUEUE_SIZE)
     {
         // Add the task t to the heap memory 
-        task *ptrtot = malloc(sizeof(t));
+        task *ptrtot = malloc(sizeof(task));
         *ptrtot = t;
 
         // Create the Node to pass 
@@ -68,6 +70,8 @@ task dequeue()
 {
     //lock for safety
     pthread_mutex_lock(&mutex_queue);
+    //debug mode
+    //printf("[dequeue] queueSpace=%d, shutdown_flag=%d\n", queueSpace, shutdown_flag);
 
     //Create an empty task so we can return in case of empty queue
     task emptyTask;
@@ -78,6 +82,7 @@ task dequeue()
     if (ptrworktodo->head == NULL){
         pthread_mutex_unlock(&mutex_queue);
         return emptyTask;
+      
     }
 
     // Pointer to the head data before it is pop'd
@@ -102,17 +107,21 @@ void *worker(void *param)
 {
     while(1) {
         //wait for sem_post
+        //printf("[worker] waiting on sem\n");
         sem_wait(&sem_workers);
+        //printf("[worker] woke up\n");
 
-        // if shutdown is called, exit loop
-        if (shutdown_flag)
+        pthread_mutex_lock(&mutex_queue);
+        int shutting_down = shutdown_flag && (queueSpace == 0);
+        pthread_mutex_unlock(&mutex_queue);
+
+        if (shutting_down)
             break;
 
-        //grab task
         task worktodo = dequeue();
 
-        // execute the task
-        execute(worktodo.function, worktodo.data);
+        if (worktodo.function != NULL)
+            execute(worktodo.function, worktodo.data);
     }
 
     pthread_exit(0);
