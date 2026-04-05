@@ -14,6 +14,7 @@ Source files:
 To run the make file, enter "make"
 
 To generate matrices for multiplication, enter "./generator" with the following arguments:
+```
     --m : matrix A dimenson m x n
     --n : matrix A dimenson m x n and matrix B dimension n x p
     --p : matrix B dimenson n x p
@@ -22,5 +23,6 @@ To generate matrices for multiplication, enter "./generator" with the following 
              random : generates a dense matrix
              sparse : generates a sparse matrix
     --sparsity : level of sparsity when using sparse mode
+```
 
 To perform the the matrix multiplication once the files are generated, enter "./example"
