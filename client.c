@@ -8,6 +8,7 @@
 #include <time.h>
 #include <pthread.h>
 #include "threadpool.h"
+#include "matrix_generator.h"
 
 int Total_no_of_partial_product = 5; //for make to work I have defined this, you should comupte this value from the dimension of the input matrices
 pthread_mutex_t done_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -42,6 +43,8 @@ void compute_partial_product(void *param)
 {
     struct data *temp;
     temp = (struct data*)param;
+    
+    printf("Computer Cell (%d, %d)\n", temp->row, temp->col);
 
     // perform partial product
     double sum = 0.0;
@@ -79,35 +82,18 @@ int main(void)
     // matrix A: with m x n 
     // matrix B: with n x p
     // resulting matrix C: m x p
-    int m = 5;
-    int n = 6;
-    int p = 4;
+    double **A, **B;
 
-    double **A = malloc(m * sizeof(double *));
-    for (int i=0; i<m; i++){
-        A[i] = malloc(n * sizeof(double));
-    }
-    double **B = malloc(n * sizeof(double *));
-    for (int i=0; i<n; i++){
-        B[i] = malloc(p * sizeof(double));
-    }    
+    int m, n, p;
+
+    // assign data to A and B here
+    load_matrix("A.txt", &A, &m, &n);
+    load_matrix("B.txt", &B, &n, &p);
+
     double **C = malloc(m * sizeof(double *));
     for (int i=0; i<m; i++){
         C[i] = malloc(p * sizeof(double));
     }
-
-    // assign data to A and B here
-    // ----- TODO -----
-    // filler for now
-    for (int i = 0; i < m; i++)
-        for (int j = 0; j < n; j++)
-            A[i][j] = i + j;
-
-    for (int i = 0; i < n; i++)
-        for (int j = 0; j < p; j++)
-            B[i][j] = i * j;
-
-    
 
     // create data array 
     Total_no_of_partial_product = m * p;
@@ -138,9 +124,11 @@ int main(void)
 
     // submit the work to the queue
     tasks_remaining = Total_no_of_partial_product;
+    printf("submitting %d tasks\n", tasks_remaining);
     for(i=0;i<Total_no_of_partial_product;i++)
     	pool_submit(&compute_partial_product,&work[i]);
 
+    printf("All tasks submitted\n");    
     // may be helpful 
     //sleep(3);
 
@@ -151,6 +139,7 @@ int main(void)
     pthread_mutex_unlock(&done_mutex);
     
 
+    printf("All tasks done - pool shutdown\n");
     pool_shutdown();
 
     clock_gettime(CLOCK_MONOTONIC, &end);
