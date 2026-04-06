@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include "threadpool.h"
 #include "matrix_generator.h"
+#include "sparse.h"
 
 int Total_no_of_partial_product = 5; //for make to work I have defined this, you should comupte this value from the dimension of the input matrices
 pthread_mutex_t done_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -32,11 +33,24 @@ struct data
 
     int n;
 
-
     // matrices
     double **A;
     double **B;
     double **C;
+};
+
+
+struct data_sparse
+{
+    // row and col here represent current cell in product matrix being calculated
+    int row;
+    int col;
+
+    sparse_row *A_rows; // array of m sparse rows
+    sparse_col *B_cols;  // array of p sparse columns
+
+    // output matrix
+    double **C; 
 };
 
 void compute_partial_product(void *param)
@@ -64,10 +78,51 @@ void compute_partial_product(void *param)
 
 }
 
+void compute_partial_product_sparse(void *param)
+{
+    struct data_sparse *temp;
+    temp = (struct data_sparse*)param;
+
+    sparse_row *srow = &temp->A_rows[temp->row];
+    sparse_col *scol = &temp->B_cols[temp->col];
+
+    double sum = 0;
+
+    int i = 0, j = 0;
+    while (i < srow->num_nonzero && j < scol->num_nonzero){
+        int colA = srow->entries[i].col;
+        int rowB = scol->entries[i].row;
+
+        if (colA == rowB){
+            sum += srow->entries[i].val * scol->entries[i].val;
+            i++; j++;
+        }
+        else if (colA < rowB){
+            i++;
+        }
+        else{
+            j++;
+        }
+    }
+    
+
+    temp->C[temp->row][temp->col] = sum;
+
+    // signal complete here
+    pthread_mutex_lock(&done_mutex);
+    tasks_remaining--;
+    if (tasks_remaining == 0){
+        pthread_cond_signal(&done_cond);
+    }
+    pthread_mutex_unlock(&done_mutex);
+
+}
+
 int main(void)
 {
     // allocate A, B, C
-    // fill A, B
+    // fill A, B (LOAD)
+    // build sparsity & check
     // allocate data array 
     // get start time
     // init threadpool 
@@ -90,29 +145,79 @@ int main(void)
     load_matrix("A.txt", &A, &m, &n);
     load_matrix("B.txt", &B, &n, &p);
 
+    
+    // allocate C - we now know the size    
     double **C = malloc(m * sizeof(double *));
     for (int i=0; i<m; i++){
         C[i] = malloc(p * sizeof(double));
     }
 
-    // create data array 
-    Total_no_of_partial_product = m * p;
-    int i = 0;
-    struct data *work = malloc(sizeof(struct data) * Total_no_of_partial_product);
+    double densityA = compute_density(A, m, n);
+    double densityB = compute_density(B, n, p);
 
-    for (int row = 0; row < m; row++){
-        for (int col = 0; col < p; col++){
-            work[i].row = row;
-            work[i].col = col;
-            work[i].n = n;
-            work[i].A = A;
-            work[i].B = B;
-            work[i].C = C;
-            i++;
+    printf("Density A: %.4f \n", densityA);
+    printf("Density B: %.4f \n", densityB);
+
+    void (*worker_func)(void *);
+    void *work_ptr = NULL;
+    size_t task_size = 0;
+
+    if ( (densityA < 0.2) || (densityB < 0.2) )
+    {
+        printf("Using Sparse Method: \n");
+
+        // create data array req
+        sparse_row *A_rows = build_sparse_rows(A, m, n);
+        sparse_col *B_cols = build_sparse_cols(B, n, p);
+
+        Total_no_of_partial_product = m * p;
+
+        // create data array
+        struct data_sparse *work_sparse = malloc(sizeof(struct data_sparse) * Total_no_of_partial_product);
+
+        int i = 0;
+        for (int row = 0; row<m; row++){
+            for (int col = 0; col < p; col++){
+                work_sparse[i].row = row;
+                work_sparse[i].col = col;
+                work_sparse[i].A_rows = A_rows;
+                work_sparse[i].B_cols = B_cols;
+                work_sparse[i].C = C;
+                i++;
+            }
         }
+
+        worker_func = compute_partial_product_sparse;
+        work_ptr = work_sparse;
+        task_size = sizeof(struct data_sparse);
+
     }
+    else
+    {
+        printf("Using Dense Method: \n");
 
+        // create data array 
+        Total_no_of_partial_product = m * p;
+        int i = 0;
+        struct data *work = malloc(sizeof(struct data) * Total_no_of_partial_product);
 
+        for (int row = 0; row < m; row++){
+            for (int col = 0; col < p; col++){
+                work[i].row = row;
+                work[i].col = col;
+                work[i].n = n;
+                work[i].A = A;
+                work[i].B = B;
+                work[i].C = C;
+                i++;
+            }
+        }
+
+        // assign func to later
+        worker_func = compute_partial_product;
+        work_ptr = work;
+        task_size = sizeof(struct data);
+    }
 
 
     // get start time
@@ -125,8 +230,10 @@ int main(void)
     // submit the work to the queue
     tasks_remaining = Total_no_of_partial_product;
     printf("submitting %d tasks\n", tasks_remaining);
-    for(i=0;i<Total_no_of_partial_product;i++)
-    	pool_submit(&compute_partial_product,&work[i]);
+    for(int i=0;i<Total_no_of_partial_product;i++){
+        void *task_ptr = (char*)work_ptr + i * task_size;
+    	pool_submit(worker_func, task_ptr);
+    }
 
     printf("All tasks submitted\n");    
     // may be helpful 
@@ -184,7 +291,25 @@ int main(void)
     }
     free(C);
 
-    free(work);
+
+    /*
+    
+    if ((densityA < 0.2) || (densityB < 0.2)) {
+        for (int r = 0; r < m; r++)
+            free(A_rows[r].entries);
+        free(A_rows);
+
+        for (int c = 0; c < p; c++)
+            free(B_cols[c].entries);
+        free(B_cols);
+
+        free(work_sparse);
+    } else {
+        free(work);
+    }
+    */
+
+    //free(work);
     
     
     return 0;

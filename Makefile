@@ -5,10 +5,10 @@ CC=gcc
 CFLAGS=-Wall
 PTHREADS=-lpthread
 
-all: example generator
+all: mult generator
 
-example: client.o threadpool.o Queue.o matrix_generator.o
-	$(CC) $(CFLAGS) -o example client.o threadpool.o Queue.o matrix_generator.o $(PTHREADS)
+mult: client.o threadpool.o Queue.o matrix_generator.o sparse.o
+	$(CC) $(CFLAGS) -o mult client.o threadpool.o Queue.o matrix_generator.o sparse.o $(PTHREADS)
 
 generator: matrix_generator_main.o matrix_generator.o
 	$(CC) $(CFLAGS) -o generator matrix_generator_main.o matrix_generator.o $(PTHREADS)
@@ -28,9 +28,12 @@ matrix_generator.o: matrix_generator.c matrix_generator.h
 matrix_generator_main.o: matrix_generator_main.c matrix_generator.h
 	$(CC) $(CFLAGS) -c matrix_generator_main.c $(PTHREADS)
 
+sparse.o: sparse.c sparse.h 
+	$(CC) $(CFLAGS) -c sparse.c $(PTHREADS)
+
 clean:
 	rm -rf *.o
-	rm -rf example
+	rm -rf mult
 	rm -rf generator
 	rm -rf *.txt
 

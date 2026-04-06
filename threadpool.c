@@ -9,7 +9,7 @@
 #include "threadpool.h"
 #include "Queue.h"
 
-#define QUEUE_SIZE 100000
+#define QUEUE_SIZE 100
 #define NUMBER_OF_THREADS 5
 
 #define TRUE 1
