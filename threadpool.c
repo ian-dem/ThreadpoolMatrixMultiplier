@@ -17,7 +17,7 @@
 //Synchronization
 pthread_mutex_t mutex_queue;
 sem_t sem_workers;
-
+sem_t sem_queue_spaces;
 
 // # of spots taken in the queue
 int  queueSpace = 0;
@@ -36,6 +36,9 @@ pthread_t bee[NUMBER_OF_THREADS];
 // insert a task into the queue
 int enqueue(task t) 
 {
+    // Wait until there is an open space in the queue
+    sem_wait(&sem_queue_spaces);
+
     //Lock queue
     pthread_mutex_lock(&mutex_queue);
     //debug message
@@ -98,6 +101,10 @@ task dequeue()
 
     // unlock and return
     pthread_mutex_unlock(&mutex_queue);
+
+    // Signal that a spot has opened up in the queue
+    sem_post(&sem_queue_spaces);
+
     return headData;
 
 }
@@ -153,6 +160,7 @@ void pool_init(void)
 {
     pthread_mutex_init(&mutex_queue, 0);
     sem_init(&sem_workers, 0 ,0);
+    sem_init(&sem_queue_spaces, 0, QUEUE_SIZE);
 
     // initialize queue
     worktodo.head = NULL;
@@ -188,4 +196,5 @@ void pool_shutdown(void)
     //clean up sync
     pthread_mutex_destroy(&mutex_queue);
     sem_destroy(&sem_workers);
+    sem_destroy(&sem_queue_spaces);
 }
