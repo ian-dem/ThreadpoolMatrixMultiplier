@@ -25,4 +25,4 @@ To generate matrices for multiplication, enter "./generator" with the following 
     --sparsity : level of sparsity when using sparse mode
 ```
 
-To perform the the matrix multiplication once the files are generated, enter "./example"
+To perform the the matrix multiplication once the files are generated, enter "./mult"
