@@ -67,7 +67,7 @@ sparse_col* build_sparse_cols(double **B, int n, int p)
         int k = 0;
         for (int i=0; i<n; i++){
             if (B[i][j] != 0.0){
-                cols[j].entries[k].row = j;
+                cols[j].entries[k].row = i;
                 cols[j].entries[k].val = B[i][j];
                 k++;
             }
